@@ -1,0 +1,48 @@
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%
+}
+
+#root {
+  position: relative;
+  height: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 5px 50px;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  margin-bottom: 20px;
+}
+
+.highlighted {
+  color: grey;
+}
+
+.selected {
+  color: blue;
+}
+
+.symbol {
+  user-select: none;
+  font-size: 30px;
+}
+
+.selection-box {
+  position: absolute;
+  border: 2px dashed blue;
+  background-color: rgba(173, 216, 230, 0.3);
+  pointer-events: none;
+}
+
+.outputs {
+  margin: 20px 0;
+}
