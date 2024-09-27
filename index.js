@@ -1,11 +1,45 @@
+import { px, appendChildren, swapElements, setElementPosition, setElementSize, removeElements } from './utils.js'
+
+
 const SYMBOL_CLASS = 'symbol'
 const SYMBOL_SELECTOR = '.' + SYMBOL_CLASS
+const SELECTED_SYMBOL_SELECTOR = '.symbol.selected'
 const SELECTED_CLASS = 'selected'
+const DRAGGED_CLASS = 'dragged'
 const HIGHLIGHTED_CLASS = 'highlighted'
+const DRAG_THRESHOLD = 5
+const HOLD_TIME = 500
 
 
-function createTemplateIsntance(query) {
-  return document.querySelector(query).content.cloneNode(true)
+function createSymbolContainer(symbols) {
+  const container = document.createElement('div')
+  container.classList.add('container')
+  
+  appendChildren(container, symbols)
+
+  return container
+}
+
+
+function createDraggedSymbolContainer(symbols) {
+  const draggedSymbols = createDraggedSymbols(symbols)
+  const container = createSymbolContainer(draggedSymbols)
+  container.classList.add('dragged')
+
+  return container
+}
+
+
+function isRectsIntersecting(first, second) {
+  const firstRectangle = first.getBoundingClientRect()
+  const secondRectangle = second.getBoundingClientRect()
+
+  return (
+    secondRectangle.bottom >= firstRectangle.top && 
+    secondRectangle.right >= firstRectangle.left && 
+    secondRectangle.top <= firstRectangle.bottom &&
+    secondRectangle.left <= firstRectangle.right
+  )
 }
 
 function isSymbol(element) {
@@ -13,34 +47,52 @@ function isSymbol(element) {
 }
 
 
-function createSymbol(symbol) {
-  const node = document.createElement('span')
-  node.className = 'symbol'
-  node.textContent = symbol
+function isSelectedSymbol(element) {
+  return isSymbol(element) && element.classList.contains(SELECTED_CLASS)
+}
 
-  node.addEventListener('select', event => {
-    event.target.classList.add(SELECTED_CLASS)
-  })
+
+function createSymbol(string) {
+  const node = document.createElement('span')
+  node.className = SYMBOL_CLASS
+  node.textContent = string
 
   return node
 }
 
+
+function createDraggedSymbols(symbols) {
+  const draggedSymbols = []
+
+  for (const selectedSymbol of symbols) {
+    const draggedSymbol = selectedSymbol.cloneNode(true)
+
+    draggedSymbol.classList.add(DRAGGED_CLASS)
+    draggedSymbols.push(draggedSymbol)
+  }
+
+  return draggedSymbols
+}
+
+
 function createSelectionBox(startX, startY) {
   const selectionBox = document.createElement('div')
   selectionBox.classList.add('selection-box')
-  selectionBox.style.left = px(startX)
-  selectionBox.style.top = px(startY)
+  setElementPosition(selectionBox, startX, startY)
 
   return selectionBox
 }
+
 
 function removeSelectionBox() {
   document.querySelectorAll('.selection-box').forEach(element => element.remove())
 }
 
+
 function deselectSymbols() {
-  document.querySelectorAll('.symbol.selected').forEach(symbol => symbol.classList.remove('selected'))
+  selectSelectedSymbols().forEach(symbol => symbol.classList.remove(SELECTED_CLASS))
 }
+
 
 function selectHighlightedSymbols() {
   document.querySelectorAll(SYMBOL_SELECTOR).forEach(symbol => symbol.classList.replace(HIGHLIGHTED_CLASS, SELECTED_CLASS))
@@ -52,96 +104,99 @@ function createSymbolsFromString(text) {
 }
 
 
-function createOutput(symbols) {
-  const node = createTemplateIsntance('.output-template')
-  const symbolsArea = node.querySelector('.symbols')
-
-  symbols.forEach((symbol) => symbolsArea.appendChild(symbol))
-
-  return node
-
+function selectSelectedSymbols() {
+  return document.querySelectorAll(SELECTED_SYMBOL_SELECTOR)
 }
-
-
-function px(value) {
-  return `${value}px`
-}
-
-
-const root = document.querySelector('#root')
-const outputs = document.querySelector('.outputs')
-const text = 'some random text some random text some random text some random text some random text some random text'
-const symbols = createSymbolsFromString(text)
-const output = createOutput(symbols)
-
-outputs.appendChild(output)
-
-
-
 
 document.addEventListener('mousedown', (downEvent) => {
-  const dragThreshold = 5
+  if (downEvent.button == 2) {
+    return
+  }
+
   const startX = downEvent.clientX
   const startY = downEvent.clientY
   let isDragging = false
+  let draggedContainer
+  let draggedSymbols
+  let isSelecting = false
   let selectionBox = null
+  let holdTimeout
 
-  if (!downEvent.ctrlKey && !downEvent.metaKey) {
-    deselectSymbols()
+  if (isSelectedSymbol(downEvent.target)) {
+    holdTimeout = setTimeout(() => {
+      isDragging = true
+      draggedSymbols = selectSelectedSymbols()
+      draggedContainer = createDraggedSymbolContainer(draggedSymbols)
+      
+      setElementPosition(draggedContainer, startX, startY)
+
+      document.body.appendChild(draggedContainer)
+    }, HOLD_TIME)
   }
 
   const onMouseMove = (moveEvent) => {
-    const moveX = Math.abs(moveEvent.clientX - startX)
-    const moveY = Math.abs(moveEvent.clientY - startY)
+    const newX = moveEvent.clientX
+    const newY = moveEvent.clientY
+    const isMoved = Math.abs(newX - startX) > DRAG_THRESHOLD || Math.abs(newY - startY) > DRAG_THRESHOLD
 
-    if (!isDragging && (moveX > dragThreshold || moveY > dragThreshold)) {
-      isDragging = true
+    if (isDragging) {
+      setElementPosition(draggedContainer, newX, newY)
+
+      return 
+    }
+
+    if (!isSelecting && isMoved) {
+      isSelecting = true
       selectionBox = createSelectionBox(startX, startY)
       document.body.appendChild(selectionBox)
     }
 
-    if (isDragging && selectionBox) {
-      const currentX = moveEvent.clientX
-      const currentY = moveEvent.clientY
-      const width = Math.abs(startX - currentX)
-      const height = Math.abs(startY - currentY)
+    if (isSelecting && selectionBox) {
+      setElementSize(selectionBox, Math.abs(startX - newX), Math.abs(startY - newY))
+      setElementPosition(selectionBox, Math.min(newX, startX), Math.min(newY, startY))
 
-      selectionBox.style.width = px(width)
-      selectionBox.style.height = px(height)
-      selectionBox.style.left = px(Math.min(currentX, startX))
-      selectionBox.style.top = px(Math.min(currentY, startY))
-
-      const boxRectangle = selectionBox.getBoundingClientRect()
-      const elements = document.querySelectorAll(SYMBOL_SELECTOR)
+      const symbols = document.querySelectorAll(SYMBOL_SELECTOR)
     
-      for (const element of elements) {
-        const elementRectangle = element.getBoundingClientRect()
-    
-        const isIntersecting = (
-          elementRectangle.bottom >= boxRectangle.top && 
-          elementRectangle.top <= boxRectangle.bottom &&
-          elementRectangle.right >= boxRectangle.left && 
-          elementRectangle.left <= boxRectangle.right
-        )
-    
-        if (isIntersecting) {
-          element.classList.add(HIGHLIGHTED_CLASS)
+      for (const symbol of symbols) {
+        if (isRectsIntersecting(selectionBox, symbol)) {
+          symbol.classList.add(HIGHLIGHTED_CLASS)
         } else {
-          element.classList.remove(HIGHLIGHTED_CLASS)
+          symbol.classList.remove(HIGHLIGHTED_CLASS)
         }
       }
     }
   }
 
   const onMouseUp = (upEvent) => {
-    if (isDragging && selectionBox) {
-      removeSelectionBox()
-      selectHighlightedSymbols()
-      selectionBox = null
+    clearTimeout(holdTimeout)
+
+    if (!upEvent.ctrlKey && !upEvent.metaKey) {
+      deselectSymbols()
     }
 
-    if (!isDragging && isSymbol(upEvent.target)) {
-      upEvent.target.classList.add(SELECTED_CLASS)
+    if (isDragging) {
+      if (draggedSymbols.length == 1 && isSymbol(upEvent.target)) {
+        const targetSymbol = upEvent.target
+        const draggedSymbol = draggedSymbols[0]
+        swapElements(targetSymbol, draggedSymbol)
+        draggedContainer.remove()
+      } else {
+        removeElements(draggedSymbols)
+      }
+      
+      for (const child of draggedContainer.children) {
+        child.classList.remove('dragged')
+      }
+    } else {
+      if (isSelecting && selectionBox) {
+        removeSelectionBox()
+        selectHighlightedSymbols()
+        selectionBox = null
+      }
+  
+      if (!isSelecting && isSymbol(upEvent.target)) {
+        upEvent.target.classList.toggle(SELECTED_CLASS)
+      }
     }
     
     document.removeEventListener('mousemove', onMouseMove)
@@ -150,4 +205,24 @@ document.addEventListener('mousedown', (downEvent) => {
 
   document.addEventListener('mousemove', onMouseMove)
   document.addEventListener('mouseup', onMouseUp)
+})
+
+
+const input = document.querySelector('input')
+const button = document.querySelector('button')
+
+
+button.addEventListener('click', event => {
+  const text = input.value
+
+  if (text.length < 1) {
+    return
+  }
+
+  const symbols = createSymbolsFromString(text)
+  const container = createSymbolContainer(symbols)
+
+  document.body.appendChild(container)
+
+  input.value = ''
 })

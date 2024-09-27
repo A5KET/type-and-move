@@ -9,18 +9,18 @@ html, body {
   height: 100%
 }
 
-#root {
-  position: relative;
-  height: 100%;
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 5px 50px;
-  display: flex;
-  flex-direction: column;
+body {
+  text-align: center;
 }
 
 header {
-  margin-bottom: 20px;
+  margin: 20px auto;
+  text-align: center;
+}
+
+input {
+  margin: 20px auto;
+  display: block;
 }
 
 .highlighted {
@@ -31,7 +31,18 @@ header {
   color: blue;
 }
 
+.symbol.dragged {
+  color: mediumseagreen;
+  opacity: 0.5;
+}
+
+.container.dragged {
+  position: absolute;
+}
+
 .symbol {
+  min-width: 8px;
+  display: inline-block;
   user-select: none;
   font-size: 30px;
 }
