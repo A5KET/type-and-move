@@ -1,5 +1,15 @@
+const SYMBOL_CLASS = 'symbol'
+const SYMBOL_SELECTOR = '.' + SYMBOL_CLASS
+const SELECTED_CLASS = 'selected'
+const HIGHLIGHTED_CLASS = 'highlighted'
+
+
 function createTemplateIsntance(query) {
   return document.querySelector(query).content.cloneNode(true)
+}
+
+function isSymbol(element) {
+  return element?.classList?.contains(SYMBOL_CLASS)
 }
 
 
@@ -9,7 +19,7 @@ function createSymbol(symbol) {
   node.textContent = symbol
 
   node.addEventListener('select', event => {
-    event.target.classList.add('selected')
+    event.target.classList.add(SELECTED_CLASS)
   })
 
   return node
@@ -33,7 +43,7 @@ function deselectSymbols() {
 }
 
 function selectHighlightedSymbols() {
-  document.querySelectorAll('.symbol').forEach(symbol => symbol.classList.replace('highlighted', 'selected'))
+  document.querySelectorAll(SYMBOL_SELECTOR).forEach(symbol => symbol.classList.replace(HIGHLIGHTED_CLASS, SELECTED_CLASS))
 }
 
 
@@ -67,66 +77,77 @@ const output = createOutput(symbols)
 outputs.appendChild(output)
 
 
-let isSelecting = false
-let selectionBox = null
-let startX
-let startY 
 
-document.addEventListener('mousedown', (event) => {
-  if (!event.ctrlKey && !event.metaKey) {
+
+document.addEventListener('mousedown', (downEvent) => {
+  const dragThreshold = 5
+  const startX = downEvent.clientX
+  const startY = downEvent.clientY
+  let isDragging = false
+  let selectionBox = null
+
+  if (!downEvent.ctrlKey && !downEvent.metaKey) {
     deselectSymbols()
   }
 
-  isSelection = true
+  const onMouseMove = (moveEvent) => {
+    const moveX = Math.abs(moveEvent.clientX - startX)
+    const moveY = Math.abs(moveEvent.clientY - startY)
 
-  startX = event.clientX
-  startY = event.clientY
+    if (!isDragging && (moveX > dragThreshold || moveY > dragThreshold)) {
+      isDragging = true
+      selectionBox = createSelectionBox(startX, startY)
+      document.body.appendChild(selectionBox)
+    }
 
-  selectionBox = createSelectionBox(startX, startY)
-  document.body.appendChild(selectionBox)
-})
+    if (isDragging && selectionBox) {
+      const currentX = moveEvent.clientX
+      const currentY = moveEvent.clientY
+      const width = Math.abs(startX - currentX)
+      const height = Math.abs(startY - currentY)
 
-document.addEventListener('mousemove', (event) => {
-  const currentX = event.clientX
-  const currentY = event.clientY
+      selectionBox.style.width = px(width)
+      selectionBox.style.height = px(height)
+      selectionBox.style.left = px(Math.min(currentX, startX))
+      selectionBox.style.top = px(Math.min(currentY, startY))
 
-  const width = Math.abs(startX - currentX)
-  const height = Math.abs(startY - currentY)
-
-  if (selectionBox) {
-    selectionBox.style.width = px(width)
-    selectionBox.style.height = px(height)
-
-    selectionBox.style.left = px(Math.min(currentX, startX))
-    selectionBox.style.top = px(Math.min(currentY, startY))
-
-    const boxRectangle = selectionBox.getBoundingClientRect()
-    const elements = document.querySelectorAll('.symbol')
-  
-    for (const element of elements) {
-      const elementRectangle = element.getBoundingClientRect()
-  
-      const isIntersecting = (
-        elementRectangle.bottom >= boxRectangle.top && 
-        elementRectangle.top <= boxRectangle.bottom &&
-        elementRectangle.right >= boxRectangle.left && 
-        elementRectangle.left <= boxRectangle.right
-      )
-  
-      if (isIntersecting) {
-        element.classList.add('highlighted')
-      } else {
-        element.classList.remove('highlighted')
+      const boxRectangle = selectionBox.getBoundingClientRect()
+      const elements = document.querySelectorAll(SYMBOL_SELECTOR)
+    
+      for (const element of elements) {
+        const elementRectangle = element.getBoundingClientRect()
+    
+        const isIntersecting = (
+          elementRectangle.bottom >= boxRectangle.top && 
+          elementRectangle.top <= boxRectangle.bottom &&
+          elementRectangle.right >= boxRectangle.left && 
+          elementRectangle.left <= boxRectangle.right
+        )
+    
+        if (isIntersecting) {
+          element.classList.add(HIGHLIGHTED_CLASS)
+        } else {
+          element.classList.remove(HIGHLIGHTED_CLASS)
+        }
       }
     }
   }
-})
 
-document.addEventListener('mouseup', (event) => {
-  isSelecting = false
-  if (selectionBox) {
-    selectHighlightedSymbols()
-    removeSelectionBox()
-    selectionBox = null
+  const onMouseUp = (upEvent) => {
+    if (isDragging && selectionBox) {
+      removeSelectionBox()
+      selectHighlightedSymbols()
+      selectionBox = null
+    }
+
+    if (!isDragging && isSymbol(upEvent.target)) {
+      upEvent.target.classList.add(SELECTED_CLASS)
+    }
+    
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
   }
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
 })
