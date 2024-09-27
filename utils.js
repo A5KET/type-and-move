@@ -45,3 +45,8 @@ export function cloneElements(elements) {
 export function removeElements(elements) {
   elements.forEach(element => element.remove())
 }
+
+
+export function hasClass(element, className) {
+  return element?.classList?.contains(className)
+}

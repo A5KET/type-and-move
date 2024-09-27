@@ -1,4 +1,4 @@
-import { px, appendChildren, swapElements, setElementPosition, setElementSize, removeElements } from './utils.js'
+import { px, appendChildren, swapElements, setElementPosition, setElementSize, removeElements, hasClass } from './utils.js'
 
 
 const SYMBOL_CLASS = 'symbol'
@@ -43,12 +43,17 @@ function isRectsIntersecting(first, second) {
 }
 
 function isSymbol(element) {
-  return element?.classList?.contains(SYMBOL_CLASS)
+  return hasClass(element, SYMBOL_CLASS)
 }
 
 
 function isSelectedSymbol(element) {
-  return isSymbol(element) && element.classList.contains(SELECTED_CLASS)
+  return isSymbol(element) && hasClass(element, SELECTED_CLASS)
+}
+
+
+function isDragged(element) {
+  return hasClass(element, DRAGGED_CLASS)
 }
 
 
@@ -91,6 +96,10 @@ function removeSelectionBox() {
 
 function deselectSymbols() {
   selectSelectedSymbols().forEach(symbol => symbol.classList.remove(SELECTED_CLASS))
+}
+
+function dedraggSymbols() {
+  document.querySelectorAll('.symbol.dragged').forEach(symbol => symbol.classList.remove(DRAGGED_CLASS))
 }
 
 
@@ -145,7 +154,7 @@ document.addEventListener('mousedown', (downEvent) => {
       return 
     }
 
-    if (!isSelecting && isMoved) {
+    if (!isDragging && !isSelecting && isMoved) {
       isSelecting = true
       selectionBox = createSelectionBox(startX, startY)
       document.body.appendChild(selectionBox)
@@ -169,24 +178,24 @@ document.addEventListener('mousedown', (downEvent) => {
 
   const onMouseUp = (upEvent) => {
     clearTimeout(holdTimeout)
+    const target = upEvent.target
 
     if (!upEvent.ctrlKey && !upEvent.metaKey) {
       deselectSymbols()
     }
 
     if (isDragging) {
-      if (draggedSymbols.length == 1 && isSymbol(upEvent.target)) {
-        const targetSymbol = upEvent.target
+      if (draggedSymbols.length == 1 && isSymbol(target) && !isDragged(target)) {
+        const targetSymbol = target
         const draggedSymbol = draggedSymbols[0]
+
         swapElements(targetSymbol, draggedSymbol)
         draggedContainer.remove()
       } else {
         removeElements(draggedSymbols)
       }
       
-      for (const child of draggedContainer.children) {
-        child.classList.remove('dragged')
-      }
+      dedraggSymbols()
     } else {
       if (isSelecting && selectionBox) {
         removeSelectionBox()
@@ -194,8 +203,8 @@ document.addEventListener('mousedown', (downEvent) => {
         selectionBox = null
       }
   
-      if (!isSelecting && isSymbol(upEvent.target)) {
-        upEvent.target.classList.toggle(SELECTED_CLASS)
+      if (!isSelecting && isSymbol(target)) {
+        target.classList.toggle(SELECTED_CLASS)
       }
     }
     
